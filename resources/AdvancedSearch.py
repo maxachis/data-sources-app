@@ -18,40 +18,63 @@ class AdvancedSearch(Resource):
         data_sources = {'count': 0, 'data': []}
 
         params = request.args.to_dict()
+
+        conditions = ""
+        search_string = ['name', 'description', 'supplying_entity', 'originating_entity']
+        agency_search_keys = ['agency_name', 'state', 'county', 'municipality', 'agency_type', 'jurisdiction_type']
+        for key, value in params.items():
+            if key in search_string:
+                nlp = spacy.load('en_core_web_sm')
+                doc = nlp(value)
+                lemmatized_tokens = [token.lemma_ for token in doc]
+                new_value = " ".join(lemmatized_tokens)
+                conditions += f"data_sources.{key} ILIKE %{new_value}%"
+            elif key in agency_search_keys:
+                if key == "agency_name":
+                  conditions += f"agencies.name = {value}"
+                else:
+                  conditions += f"agencies.{key} = {value}"
+            else:
+                conditions += f"data_sources.{key} = {value}"
+            conditions += " AND "
+
+        if 'records_not_online' not in params:
+            conditions += "data_sources.records_not_online IS NOT TRUE AND "
         
-        # nlp = spacy.load("en_core_web_sm")
-        # doc = nlp(search)
-        # lemmatized_tokens = [token.lemma_ for token in doc]
-        # depluralized_search_term = " ".join(lemmatized_tokens)
+        conditions += "data_sources.approved IS TRUE"
 
-        # cursor = self.psycopg2_connection.cursor()
+        print(conditions)
+        cursor = self.psycopg2_connection.cursor()
 
-        # sql_query = """
-        #     SELECT
-        #         data_sources.name AS data_source_name,
-        #         data_sources.description,
-        #         data_sources.record_type,
-        #         data_sources.source_url,
-        #         data_sources.record_format,
-        #         data_sources.coverage_start,
-        #         data_sources.coverage_end,
-        #         data_sources.agency_supplied,
-        #         agencies.name AS agency_name,
-        #         agencies.municipality,
-        #         agencies.state_iso
-        #     FROM
-        #         agency_source_link
-        #     INNER JOIN
-        #         data_sources ON agency_source_link.airtable_uid = data_sources.airtable_uid
-        #     INNER JOIN
-        #         agencies ON agency_source_link.agency_described_linked_uid = agencies.airtable_uid
-        #     WHERE
-        #         (data_sources.name ILIKE %s OR data_sources.description ILIKE %s OR data_sources.record_type ILIKE %s OR data_sources.tags ILIKE %s) AND (agencies.county_name ILIKE %s OR agencies.state_iso ILIKE %s OR agencies.municipality ILIKE %s OR agencies.agency_type ILIKE %s OR agencies.jurisdiction_type ILIKE %s OR agencies.name ILIKE %s)
-        # """
+        sql_query = """
+            SELECT
+                data_sources.name AS data_source_name,
+                data_sources.description,
+                data_sources.record_type,
+                data_sources.source_url,
+                data_sources.record_format,
+                data_sources.coverage_start,
+                data_sources.coverage_end,
+                data_sources.agency_supplied,
+                agencies.name AS agency_name,
+                agencies.municipality,
+                agencies.state_iso
+            FROM
+                agency_source_link
+            INNER JOIN
+                data_sources ON agency_source_link.airtable_uid = data_sources.airtable_uid
+            INNER JOIN
+                agencies ON agency_source_link.agency_described_linked_uid = agencies.airtable_uid
+            WHERE
+                
+        """
 
-        # cursor.execute(sql_query, (f'%{depluralized_search_term}%', f'%{depluralized_search_term}%', f'%{depluralized_search_term}%', f'%{depluralized_search_term}%', f'%{location}%', f'%{location}%', f'%{location}%', f'%{location}%', f'%{location}%', f'%{location}%'))
+        sql_query_with_conditions = sql_query + conditions
 
-        # results = cursor.fetchall()
+        cursor.execute(sql_query_with_conditions)
+
+        results = cursor.fetchall()
+        print(results)
 
         # column_names = ['data_source_name', 'description', 'record_type', 'source_url', 'record_format', 'coverage_start', 'coverage_end', 'agency_supplied', 'agency_name', 'municipality', 'state_iso']
 

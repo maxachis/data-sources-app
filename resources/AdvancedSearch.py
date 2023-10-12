@@ -2,11 +2,9 @@ from flask import request
 from flask_restful import Resource
 from middleware.security import api_required
 from utilities.convert_dates_to_strings import convert_dates_to_strings
+from utilities.common import transform_string_array_to_array
 import spacy
-import requests
 import json
-import os
-import datetime
 
 class AdvancedSearch(Resource):
   def __init__(self, **kwargs):
@@ -45,7 +43,6 @@ class AdvancedSearch(Resource):
         
         conditions += "data_sources.approved IS TRUE"
 
-        print(conditions)
         cursor = self.psycopg2_connection.cursor()
 
         sql_query = """
@@ -96,3 +93,65 @@ class AdvancedSearch(Resource):
         # message = {'content': 'Error during advanced search operation: ' + str(e) + "\n" + f"Query Params: {params}\n"}
         # requests.post(webhook_url, data=json.dumps(message), headers={"Content-Type": "application/json"})
         return data_sources
+
+data_source_options = [
+    "record_type",
+    "access_type",
+    "record_format",
+    "agency_aggregation", # aggregation_type?
+    "data_portal_type"
+    # "access_restrictions" - doesn't exist in database
+]
+
+agency_options = [
+    "name",
+    "state_iso",
+    "county_name",
+    "municipality",
+    "agency_type",
+    "jurisdiction_type"
+]
+
+options_to_format = ['access_type', 'record_format', 'county_name']
+
+class AdvancedSearchOptions(Resource): 
+    def __init__(self, **kwargs):
+        self.psycopg2_connection = kwargs['psycopg2_connection']
+    
+    @api_required
+    def get(self):
+        options = {}
+
+        def format_result_options(results):
+            consolidated_results = [result[0] for result in results if result[0] is not None]
+            formatted_results = []
+            for item in consolidated_results:
+                formatted_results.append(transform_string_array_to_array(item))
+            consolidated_formatted_results = [result[0] for result in formatted_results if result[0] is not None]
+            unique_results = []
+            for item in consolidated_formatted_results:
+                if item not in unique_results:
+                    unique_results.append(item)
+            return unique_results
+            
+        def get_options_for_field(field, table):
+            cursor = self.psycopg2_connection.cursor()
+            cursor.execute('SELECT DISTINCT {} FROM {}'.format(field, table))
+            results = cursor.fetchall()
+            if field in options_to_format:
+                unique_results = format_result_options(results)
+                options[field] = unique_results
+            else:
+                consolidated_results = [result[0] for result in results if result[0] is not None]
+                options[field] = consolidated_results
+
+        try:
+            for field in data_source_options:
+                get_options_for_field(field, "data_sources")
+            for field in agency_options:
+                get_options_for_field(field, "agencies")
+
+            return options
+        except Exception as e:
+            print(str(e))
+            return options

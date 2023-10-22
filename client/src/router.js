@@ -1,6 +1,7 @@
 import { createWebHistory, createRouter } from 'vue-router';
 import QuickSearchPage from '../src/pages/QuickSearchPage';
 import SearchResultPage from '../src/pages/SearchResultPage';
+import AdvancedSearchPage from '../src/pages/AdvancedSearchPage';
 
 const routes = [
 	{ path: '/', component: QuickSearchPage, name: 'QuickSearchPage' },
@@ -8,6 +9,11 @@ const routes = [
 		path: '/search/:searchTerm/:location',
 		component: SearchResultPage,
 		name: 'SearchResultPage',
+	},
+	{
+		path: '/advanced-search',
+		component: AdvancedSearchPage,
+		name: 'AdvancedSearchPage',
 	},
 ];
 

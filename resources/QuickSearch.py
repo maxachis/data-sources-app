@@ -1,4 +1,5 @@
 from flask_restful import Resource
+from flask import Response
 from middleware.security import api_required
 from middleware.quick_search_query import quick_search_query
 import requests
@@ -26,7 +27,10 @@ class QuickSearch(Resource):
                     self.psycopg2_connection, search, location
                 )
 
-            return data_sources
+            data_sources_response = Response(response=data_sources)
+            data_sources_response.headers.add("Cache-Control", "public,max-age=300")
+
+            return data_sources_response
 
         except Exception as e:
             self.psycopg2_connection.rollback()

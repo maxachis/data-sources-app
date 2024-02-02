@@ -1,5 +1,5 @@
 from flask_restful import Resource
-from flask import request, jsonify
+from flask import request, jsonify, Response
 from middleware.security import api_required
 from middleware.data_source_queries import data_source_by_id_query, data_sources_query
 import json
@@ -19,7 +19,11 @@ class DataSourceById(Resource):
                 conn=self.psycopg2_connection, data_source_id=data_source_id
             )
             if data_source_details:
-                return data_source_details
+                data_source_details_response = Response(response=data_source_details)
+                data_source_details_response.headers.add(
+                    "Cache-Control", "public,max-age=300"
+                )
+                return data_source_details_response
 
             else:
                 return "Data source not found.", 404

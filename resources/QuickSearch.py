@@ -27,10 +27,17 @@ class QuickSearch(Resource):
                     self.psycopg2_connection, search, location
                 )
 
+            if data_sources["count"] == 0:
+                return {
+                    "count": 0,
+                    message: "No results found. Please considering requesting a new data source.",
+                }, 404
+
             data_sources_response = Response(response=data_sources)
             data_sources_response.headers.add("Cache-Control", "public,max-age=300")
 
             return data_sources_response
+
 
         except Exception as e:
             self.psycopg2_connection.rollback()
